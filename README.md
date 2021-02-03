@@ -40,4 +40,5 @@ than it will copy or *link it to the projekt folder.
 ## *Still to come
 Some features are not included at present. This will follow:
 
-- link files from cache 
+- optional linking files from cache
+- optional verbose output 
