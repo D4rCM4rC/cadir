@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <experimental/filesystem>
+#include <array>
 #include "openssl/md5.h"
 
 const int currentWorkingDirectoryArgument = 0;
@@ -77,8 +78,26 @@ std::string removeLastStringAfterSlash(const std::string &content) {
     return content.substr(0, (content.rfind('/') + 1));
 };
 
+std::string executeCommand(const std::string &command)
+{
+    std::array<char, 128> buffer{};
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
+
+    if (!pipe) throw std::runtime_error("popen() failed!");
+
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+
+    return result;
+}
+
+void trace(const std::string &log) {
+    std::cout << log << "\n";
+}
+
 int main(int argument_count, char **argument_list) {
-    std::cout << argument_list[0];
     if (argument_count < 6 || argument_count > 7) {
         display_help();
 
@@ -88,6 +107,7 @@ int main(int argument_count, char **argument_list) {
     bool copyMode = false;
 
     if (argument_count == 7 && strcmp(argument_list[copyModeArgument], "copy") == 0) {
+        trace("Copy mode enabled");
         copyMode = true;
     }
 
@@ -100,6 +120,8 @@ int main(int argument_count, char **argument_list) {
         return 2;
     }
 
+    trace("Identity file is: " + directory);
+
     std::string currentWorkingDirectoryPath(argument_list[currentWorkingDirectoryArgument]);
     currentWorkingDirectoryPath = removeLastStringAfterSlash(currentWorkingDirectoryPath);
 
@@ -111,22 +133,32 @@ int main(int argument_count, char **argument_list) {
 
 
     if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
+        trace("No cache exists");
         std::string commandString = generateCommand(argument_list);
-        popen(commandString.c_str(), "rw");
+        trace("Execute: " + commandString);
+        executeCommand(commandString);
+
+        trace("Create cache directory: " + targetDirectoryPath);
+        std::experimental::filesystem::create_directories(targetDirectoryPath);
+        trace("Copy data from " + sourceDirectoryPath + " to " + targetDirectoryPath);
         std::experimental::filesystem::copy(sourceDirectoryPath, targetDirectoryPath, copyOptions);
     } else {
+        trace("Cache found");
         if (std::experimental::filesystem::exists(sourceDirectoryPath)) {
             std::experimental::filesystem::remove_all(sourceDirectoryPath);
         }
 
         std::string fromPath = targetDirectoryPath;
-        if (!isAbsolutePath(targetDirectoryPath)) {
-            fromPath = currentWorkingDirectoryPath.append(targetDirectoryPath);
-        }
         if (copyMode) {
+            trace("Copy data from " + targetDirectoryPath + " to " + sourceDirectoryPath);
             std::experimental::filesystem::copy(targetDirectoryPath, sourceDirectoryPath, copyOptions);
+        } else {
+            if (!isAbsolutePath(targetDirectoryPath)) {
+                fromPath = currentWorkingDirectoryPath.append(targetDirectoryPath);
+            }
+            trace("Create link from " + fromPath + " to " + sourceDirectoryPath);
+            std::experimental::filesystem::create_symlink(fromPath, sourceDirectoryPath);
         }
-        std::experimental::filesystem::create_symlink(fromPath, sourceDirectoryPath);
     }
 
     return 0;
