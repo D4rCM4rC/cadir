@@ -129,9 +129,9 @@ int main(int argument_count, char **argument_list) {
     std::string sourceDirectoryPath(argument_list[sourceCopyDirectoryArgument]);
     std::string targetDirectoryPath = generatePath(cacheDirectory, directory);
     const auto copyOptions = std::experimental::filesystem::copy_options::recursive |
-                             std::experimental::filesystem::copy_options::overwrite_existing;
-
-
+                             std::experimental::filesystem::copy_options::overwrite_existing |
+                             std::experimental::filesystem::copy_options::copy_symlinks;
+    
     if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
         trace("No cache exists");
         std::string commandString = generateCommand(argument_list);
