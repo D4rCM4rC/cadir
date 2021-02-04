@@ -1,7 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
-#include <filesystem>
+#include <experimental/filesystem>
 #include "openssl/md5.h"
 
 const int currentWorkingDirectoryArgument = 0;
@@ -99,24 +99,24 @@ int main(int argument_count, char **argument_list) {
         std::cout << exception.what() << argument_list[sourceHashFileArgument] << "\n";
         return 2;
     }
-    
+
     std::string currentWorkingDirectoryPath(argument_list[currentWorkingDirectoryArgument]);
     currentWorkingDirectoryPath = removeLastStringAfterSlash(currentWorkingDirectoryPath);
 
     std::string cacheDirectory(argument_list[targetCacheDirectoryArgument]);
     std::string sourceDirectoryPath(argument_list[sourceCopyDirectoryArgument]);
     std::string targetDirectoryPath = generatePath(cacheDirectory, directory);
-    const auto copyOptions = std::filesystem::copy_options::recursive |
-                             std::filesystem::copy_options::overwrite_existing;
+    const auto copyOptions = std::experimental::filesystem::copy_options::recursive |
+                             std::experimental::filesystem::copy_options::overwrite_existing;
 
 
-    if (!std::filesystem::exists(targetDirectoryPath)) {
+    if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
         std::string commandString = generateCommand(argument_list);
         popen(commandString.c_str(), "rw");
-        std::filesystem::copy(sourceDirectoryPath, targetDirectoryPath, copyOptions);
+        std::experimental::filesystem::copy(sourceDirectoryPath, targetDirectoryPath, copyOptions);
     } else {
-        if (std::filesystem::exists(sourceDirectoryPath)) {
-            std::filesystem::remove_all(sourceDirectoryPath);
+        if (std::experimental::filesystem::exists(sourceDirectoryPath)) {
+            std::experimental::filesystem::remove_all(sourceDirectoryPath);
         }
 
         std::string fromPath = targetDirectoryPath;
@@ -124,9 +124,9 @@ int main(int argument_count, char **argument_list) {
             fromPath = currentWorkingDirectoryPath.append(targetDirectoryPath);
         }
         if (copyMode) {
-            std::filesystem::copy(targetDirectoryPath, sourceDirectoryPath, copyOptions);
+            std::experimental::filesystem::copy(targetDirectoryPath, sourceDirectoryPath, copyOptions);
         }
-        std::filesystem::create_symlink(fromPath, sourceDirectoryPath);
+        std::experimental::filesystem::create_symlink(fromPath, sourceDirectoryPath);
     }
 
     return 0;
