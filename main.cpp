@@ -22,23 +22,16 @@ enum ExitCode {
     createCacheDirectoriesFailed = 9,
 };
 
-std::string generateMd5FromString(const std::string &content) {
-    MD5_CTX context;
-    unsigned char md5Data[16];
-    char buffer[3];
+void createCache(
+        const std::string &setupCommand,
+        const std::string &cacheSource,
+        const std::string &commandString,
+        const std::string &targetDirectoryPath,
+        const std::filesystem::copy_options &copyOptions
+);
 
-    MD5_Init(&context);
-    MD5_Update(&context, content.c_str(), strlen(content.c_str()));
-    MD5_Final(md5Data, &context);
+std::string generateMd5FromString(const std::string &content);
 
-    std::string md5String;
-    for (int i = 0; i < 16; i++) {
-        sprintf(buffer, "%02x", md5Data[i]);
-        md5String.append(buffer);
-    }
-
-    return md5String;
-}
 
 std::string getFileContents(const std::string &fileName) {
     std::ifstream file(fileName);
@@ -150,28 +143,14 @@ int main(int argumentCount, char **argumentList) {
     if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
         trace("No cache exists");
         commandString = generateCommand(commandWorkingDirectory, setupCommand);
-        trace("Execute: " + commandString);
-        if (executeCommand(commandString)) {
-            trace("Setup command failed");
 
-            return ExitCode::setupCommandFailed;
-        }
-        try {
-            trace("Create cache directory: " + targetDirectoryPath);
-            std::experimental::filesystem::create_directories(targetDirectoryPath);
-        } catch (...) {
-            trace("Create cache directories failed");
-
-            return ExitCode::createCacheDirectoriesFailed;
-        }
-        try {
-            trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
-            std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
-        } catch (...) {
-            trace("Copy to cache failed");
-
-            return ExitCode::copyToCacheFailed;
-        }
+        createCache(
+                setupCommand,
+                cacheSource,
+                commandString,
+                targetDirectoryPath,
+                copyOptions
+        );
     } else {
         trace("Cache found");
         try {
@@ -216,4 +195,53 @@ int main(int argumentCount, char **argumentList) {
     }
 
     return ExitCode::ok;
+}
+
+std::string generateMd5FromString(const std::string &content) {
+    MD5_CTX context;
+    unsigned char md5Data[16];
+    char buffer[3];
+
+    MD5_Init(&context);
+    MD5_Update(&context, content.c_str(), strlen(content.c_str()));
+    MD5_Final(md5Data, &context);
+
+    std::string md5String;
+    for (int i = 0; i < 16; i++) {
+        sprintf(buffer, "%02x", md5Data[i]);
+        md5String.append(buffer);
+    }
+
+    return md5String;
+}
+
+void createCache(
+        const std::string &setupCommand,
+        const std::string &cacheSource,
+        const std::string &commandString,
+        const std::string &targetDirectoryPath,
+        const std::filesystem::copy_options &copyOptions
+) {
+    trace("Execute: " + commandString);
+    if (executeCommand(commandString)) {
+        trace("Setup command failed");
+
+        //return ExitCode::setupCommandFailed;
+    }
+    try {
+        trace("Create cache directory: " + targetDirectoryPath);
+        std::experimental::filesystem::create_directories(targetDirectoryPath);
+    } catch (...) {
+        trace("Create cache directories failed");
+
+        //return ExitCode::createCacheDirectoriesFailed;
+    }
+    try {
+        trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
+        std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
+    } catch (...) {
+        trace("Copy to cache failed");
+
+        //return ExitCode::copyToCacheFailed;
+    }
 }
