@@ -4,25 +4,10 @@
 #include <experimental/filesystem>
 #include <array>
 #include "openssl/md5.h"
+#include "CLI11.hpp"
 
 const int currentWorkingDirectoryArgument = 0;
-const int sourceCopyDirectoryArgument = 1;
-const int sourceHashFileArgument = 2;
-const int targetCacheDirectoryArgument = 3;
-const int commandWorkingDirectoryArgument = 4;
-const int commandArgument = 5;
-const int copyModeArgument = 6;
-
-std::string generateCommand(char *const *argument_list);
-
-void display_help() {
-    std::cout << "Usage: \n";
-    std::cout
-            << "cadir DIRECTORY_TO_BE_CACHED FILE_FOR_IDENTIFY_CACHE DIRECTORY_FOR_CACHES COMMAND_WORKING_DIRECTORY COMMAND [COPY_MODE] \n";
-    std::cout << "cadir test/source/vendor test/source/composer.lock test/cache test/source/ \"composer install\"\n";
-    std::cout
-            << "cadir test/source/vendor test/source/composer.lock test/cache test/source/ \"composer install\" copy\n";
-}
+bool verbose = false;
 
 std::string generateMd5FromString(const std::string &content) {
     MD5_CTX context;
@@ -42,7 +27,7 @@ std::string generateMd5FromString(const std::string &content) {
     return md5String;
 }
 
-std::string getFileContents(char *fileName) {
+std::string getFileContents(const std::string &fileName) {
     std::ifstream file(fileName);
 
     if (!file.good()) {
@@ -53,7 +38,7 @@ std::string getFileContents(char *fileName) {
                        std::istreambuf_iterator<char>());
 }
 
-std::string generatePath(std::string directory, const std::string &name) {
+std::string generatePath(std::string &directory, const std::string &name) {
     if (directory.back() != '/') {
         directory.append("/");
     }
@@ -65,12 +50,12 @@ bool isAbsolutePath(const std::string &directory) {
     return directory.front() == '/';
 }
 
-std::string generateCommand(char *const *argument_list) {
+std::string generateCommand(const std::string &workingDirectory, const std::string &command) {
     std::string commandString = "cd ";
     commandString
-            .append(argument_list[commandWorkingDirectoryArgument])
+            .append(workingDirectory)
             .append("; ")
-            .append(argument_list[commandArgument]);
+            .append(command);
     return commandString;
 }
 
@@ -78,8 +63,7 @@ std::string removeLastStringAfterSlash(const std::string &content) {
     return content.substr(0, (content.rfind('/') + 1));
 };
 
-std::string executeCommand(const std::string &command)
-{
+std::string executeCommand(const std::string &command) {
     std::array<char, 128> buffer{};
     std::string result;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
@@ -93,71 +77,97 @@ std::string executeCommand(const std::string &command)
     return result;
 }
 
-void trace(const std::string &log) {
+void trace(const std::string &log, bool const force = false) {
+    if (!force && ! verbose) {
+        return;
+    }
+
     std::cout << log << "\n";
 }
 
-int main(int argument_count, char **argument_list) {
-    if (argument_count < 6 || argument_count > 7) {
-        display_help();
+int main(int argumentCount, char **argumentList) {
+    std::string identityFile;
+    std::string commandWorkingDirectory;
+    std::string setupCommand;
+    std::string finalizeCommand;
+    std::string targetCacheDirectoryPath;
+    std::string cacheSource;
+    std::string currentWorkingDirectoryPath(removeLastStringAfterSlash(argumentList[currentWorkingDirectoryArgument]));
+    std::string generatedHashTargetDirectory;
+    bool linkCache = false;
+
+    // new arguments: --cache-source="test/source/vendor" --identity-file="test/source/composer.lock" --cache-destination="test/cache" --command-working-directory="test/source/" --command="composer install --ignore-platform-reqs" --finalize-command="composer dump-autoload"
+    CLI::App app{"App description"};
+
+
+    app.add_option("-s,--cache-source", cacheSource, "The directory which should be cached");
+    app.add_option("-i,--identity-file", identityFile, "File which shows differences");
+    app.add_option("-d,--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
+    app.add_option("-w,--command-working-directory", commandWorkingDirectory,
+                   "Working directory where the setup command is called from");
+    app.add_option("-c,--command", setupCommand, "Argument which is called if cache is not found");
+    app.add_option("-f,--finalize-command", finalizeCommand,
+                   "[optional] Command which is called after cache is regenerated, linked or copied");
+    app.add_flag("-v,--verbose", verbose, "Show verbose output");
+    app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
+
+    try {
+        app.parse(argumentCount, argumentList);
+    } catch (const std::exception& ex) {
+        trace(ex.what(), true);
+        trace(app.help(), true);
 
         return 1;
     }
 
-    bool copyMode = false;
+    std::cout << app.help();
 
-    if (argument_count == 7 && strcmp(argument_list[copyModeArgument], "copy") == 0) {
-        trace("Copy mode enabled");
-        copyMode = true;
-    }
-
-    std::string directory;
+    std::string commandString;
+    std::string targetDirectoryPath;
 
     try {
-        directory = generateMd5FromString(getFileContents(argument_list[sourceHashFileArgument]));
+        generatedHashTargetDirectory = generateMd5FromString(getFileContents(identityFile));
     } catch (std::invalid_argument &exception) {
-        std::cout << exception.what() << argument_list[sourceHashFileArgument] << "\n";
+        std::cout << exception.what() << identityFile << "\n";
         return 2;
     }
 
-    trace("Identity file is: " + directory);
+    targetDirectoryPath = generatePath(targetCacheDirectoryPath, generatedHashTargetDirectory);
 
-    std::string currentWorkingDirectoryPath(argument_list[currentWorkingDirectoryArgument]);
-    currentWorkingDirectoryPath = removeLastStringAfterSlash(currentWorkingDirectoryPath);
+    trace("Identity file is: " + generatedHashTargetDirectory);
 
-    std::string cacheDirectory(argument_list[targetCacheDirectoryArgument]);
-    std::string sourceDirectoryPath(argument_list[sourceCopyDirectoryArgument]);
-    std::string targetDirectoryPath = generatePath(cacheDirectory, directory);
     const auto copyOptions = std::experimental::filesystem::copy_options::recursive |
                              std::experimental::filesystem::copy_options::overwrite_existing |
                              std::experimental::filesystem::copy_options::copy_symlinks;
-    
+
     if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
         trace("No cache exists");
-        std::string commandString = generateCommand(argument_list);
+        commandString = generateCommand(commandWorkingDirectory, setupCommand);
         trace("Execute: " + commandString);
         executeCommand(commandString);
-
         trace("Create cache directory: " + targetDirectoryPath);
         std::experimental::filesystem::create_directories(targetDirectoryPath);
-        trace("Copy data from " + sourceDirectoryPath + " to " + targetDirectoryPath);
-        std::experimental::filesystem::copy(sourceDirectoryPath, targetDirectoryPath, copyOptions);
+        trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
+        std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
     } else {
         trace("Cache found");
-        if (std::experimental::filesystem::exists(sourceDirectoryPath)) {
-            std::experimental::filesystem::remove_all(sourceDirectoryPath);
+        if (std::experimental::filesystem::exists(cacheSource)) {
+            std::experimental::filesystem::remove_all(cacheSource);
         }
 
         std::string fromPath = targetDirectoryPath;
-        if (copyMode) {
-            trace("Copy data from " + targetDirectoryPath + " to " + sourceDirectoryPath);
-            std::experimental::filesystem::copy(targetDirectoryPath, sourceDirectoryPath, copyOptions);
+        if (!linkCache) {
+            trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
+            std::experimental::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
+            commandString = generateCommand(commandWorkingDirectory, finalizeCommand);
+            trace("Execute: " + commandString);
+            executeCommand(commandString);
         } else {
             if (!isAbsolutePath(targetDirectoryPath)) {
                 fromPath = currentWorkingDirectoryPath.append(targetDirectoryPath);
             }
-            trace("Create link from " + fromPath + " to " + sourceDirectoryPath);
-            std::experimental::filesystem::create_symlink(fromPath, sourceDirectoryPath);
+            trace("Create link from " + fromPath + " to " + cacheSource);
+            std::experimental::filesystem::create_symlink(fromPath, cacheSource);
         }
     }
 
