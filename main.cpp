@@ -5,6 +5,12 @@
 #include <array>
 #include "openssl/md5.h"
 #include "CLI11.hpp"
+#include "Exceptions/SetupCommandException.h"
+#include "Exceptions/CreateCacheDirectoryException.h"
+#include "Exceptions/CopyToCacheFailedException.h"
+#include "Exceptions/CleaningFailedException.h"
+#include "Exceptions/CopyFromCacheException.h"
+#include "Exceptions/LinkFromCacheException.h"
 
 enum ExitCode {
     ok = 0,
@@ -60,73 +66,79 @@ void loadFromCache(
 );
 
 int main(int argumentCount, char **argumentList) {
-    std::string identityFile;
-    std::string commandWorkingDirectory;
-    std::string setupCommand;
-    std::string finalizeCommand;
-    std::string targetCacheDirectoryPath;
-    std::string cacheSource;
-    std::string currentWorkingDirectoryPath(removeLastStringAfterSlash(argumentList[currentWorkingDirectoryArgument]));
-    std::string generatedHashTargetDirectory;
-    bool linkCache = false;
-
-    CLI::App app{"App description", "cadir"};
-
-    app.add_option("-s,--cache-source", cacheSource, "The directory which should be cached");
-    app.add_option("-i,--identity-file", identityFile, "File which shows differences");
-    app.add_option("-d,--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
-    app.add_option("-w,--command-working-directory", commandWorkingDirectory,
-                   "Working directory where the setup command is called from");
-    app.add_option("-c,--command", setupCommand, "Argument which is called if cache is not found");
-    app.add_option("-f,--finalize-command", finalizeCommand,
-                   "[optional] Command which is called after cache is regenerated, linked or copied");
-    app.add_flag("-v,--verbose", verbose, "Show verbose output");
-    app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
-
     try {
-        app.parse(argumentCount, argumentList);
-    } catch (const std::exception &ex) {
-        trace(ex.what(), true);
-        trace(app.help(), true);
+        std::string identityFile;
+        std::string commandWorkingDirectory;
+        std::string setupCommand;
+        std::string finalizeCommand;
+        std::string targetCacheDirectoryPath;
+        std::string cacheSource;
+        std::string currentWorkingDirectoryPath(
+                removeLastStringAfterSlash(argumentList[currentWorkingDirectoryArgument]));
+        std::string generatedHashTargetDirectory;
+        bool linkCache = false;
 
-        return ExitCode::argumentParsingFailed;
-    }
+        CLI::App app{"App description", "cadir"};
 
-    std::string commandString;
-    std::string targetDirectoryPath;
+        app.add_option("-s,--cache-source", cacheSource, "The directory which should be cached");
+        app.add_option("-i,--identity-file", identityFile, "File which shows differences");
+        app.add_option("-d,--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
+        app.add_option("-w,--command-working-directory", commandWorkingDirectory,
+                       "Working directory where the setup command is called from");
+        app.add_option("-c,--command", setupCommand, "Argument which is called if cache is not found");
+        app.add_option("-f,--finalize-command", finalizeCommand,
+                       "[optional] Command which is called after cache is regenerated, linked or copied");
+        app.add_flag("-v,--verbose", verbose, "Show verbose output");
+        app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
 
-    try {
-        generatedHashTargetDirectory = generateMd5FromString(getFileContents(identityFile));
-    } catch (std::invalid_argument &exception) {
+        try {
+            app.parse(argumentCount, argumentList);
+        } catch (const std::exception &ex) {
+            trace(ex.what(), true);
+            trace(app.help(), true);
+
+            return ExitCode::argumentParsingFailed;
+        }
+
+        std::string commandString;
+        std::string targetDirectoryPath;
+
+        try {
+            generatedHashTargetDirectory = generateMd5FromString(getFileContents(identityFile));
+        } catch (std::invalid_argument &exception) {
+            trace(exception.what());
+            trace(identityFile);
+
+            return ExitCode::identityFileFailed;
+        }
+
+        targetDirectoryPath = generatePath(targetCacheDirectoryPath, generatedHashTargetDirectory);
+
+        trace("Identity file is: " + generatedHashTargetDirectory);
+
+
+        if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
+            trace("No cache exists");
+            commandString = generateCommand(commandWorkingDirectory, setupCommand);
+
+            createCache(
+                    setupCommand,
+                    cacheSource,
+                    commandString,
+                    targetDirectoryPath,
+                    copyOptions
+            );
+        } else {
+            commandString = generateCommand(commandWorkingDirectory, finalizeCommand);
+            loadFromCache(cacheSource, currentWorkingDirectoryPath, linkCache, commandString, targetDirectoryPath,
+                          copyOptions);
+        }
+
+        return ExitCode::ok;
+    } catch (CadirException &exception) {
         trace(exception.what());
-        trace(identityFile);
-
-        return ExitCode::identityFileFailed;
+        return exception.getErrorCode();
     }
-
-    targetDirectoryPath = generatePath(targetCacheDirectoryPath, generatedHashTargetDirectory);
-
-    trace("Identity file is: " + generatedHashTargetDirectory);
-
-
-    if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
-        trace("No cache exists");
-        commandString = generateCommand(commandWorkingDirectory, setupCommand);
-
-        createCache(
-                setupCommand,
-                cacheSource,
-                commandString,
-                targetDirectoryPath,
-                copyOptions
-        );
-    } else {
-        commandString = generateCommand(commandWorkingDirectory, finalizeCommand);
-        loadFromCache(cacheSource, currentWorkingDirectoryPath, linkCache, commandString, targetDirectoryPath,
-                      copyOptions);
-    }
-
-    return ExitCode::ok;
 }
 
 std::string getFileContents(const std::string &fileName) {
@@ -210,25 +222,21 @@ void createCache(
 ) {
     trace("Execute: " + commandString);
     if (executeCommand(commandString)) {
-        trace("Setup command failed");
-
-        //return ExitCode::setupCommandFailed;
+        throw (SetupCommandException("Setup command failed", ExitCode::setupCommandFailed));
     }
     try {
         trace("Create cache directory: " + targetDirectoryPath);
         std::experimental::filesystem::create_directories(targetDirectoryPath);
     } catch (...) {
-        trace("Create cache directories failed");
-
-        //return ExitCode::createCacheDirectoriesFailed;
+        throw (CreateCacheDirectoryException("Create cache directories failed",
+                                             ExitCode::createCacheDirectoriesFailed));
     }
     try {
         trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
         std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
     } catch (...) {
         trace("Copy to cache failed");
-
-        //return ExitCode::copyToCacheFailed;
+        throw (CopyToCacheFailedException("Copy to cache failed", ExitCode::copyToCacheFailed));
     }
 }
 
@@ -246,9 +254,7 @@ void loadFromCache(
             std::experimental::filesystem::remove_all(cacheSource);
         }
     } catch (...) {
-        trace("Cleaning for cache regeneration failed");
-
-        //return ExitCode::cleaningFailed;
+        throw (CleaningFailedException("Cleaning for cache regeneration failed", ExitCode::cleaningFailed));
     }
     std::string fromPath = targetDirectoryPath;
     if (!linkCache) {
@@ -256,15 +262,12 @@ void loadFromCache(
             trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
             std::experimental::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
         } catch (...) {
-            trace("Copy from cache failed");
-
-            //return ExitCode::copyFromCacheFailed;
+            throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
         }
         trace("Execute: " + commandString);
-        if (executeCommand(commandString)) {
-            trace("Finalize command failed");
 
-            //return ExitCode::finalizeCommandFailed;
+        if (executeCommand(commandString)) {
+            throw (SetupCommandException("Setup command failed", ExitCode::finalizeCommandFailed));
         }
     } else {
         if (!isAbsolutePath(targetDirectoryPath)) {
@@ -275,9 +278,7 @@ void loadFromCache(
         try {
             std::experimental::filesystem::create_symlink(fromPath, cacheSource);
         } catch (...) {
-            trace("Cannot create symlink");
-
-            //return ExitCode::createSymLinkFailed;
+            throw (LinkFromCacheException("Cannot create symlink", ExitCode::createSymLinkFailed));
         }
     }
 }
