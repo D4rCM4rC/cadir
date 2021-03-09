@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
-#include <filesystem>
+#include <fstream>
+#include <experimental/filesystem>
 #include <array>
 #include "openssl/md5.h"
 #include "CLI11.hpp"
@@ -25,9 +26,9 @@ enum ExitCode {
 };
 
 const int currentWorkingDirectoryArgument = 0;
-const auto copyOptions = std::filesystem::copy_options::recursive |
-                         std::filesystem::copy_options::overwrite_existing |
-                         std::filesystem::copy_options::copy_symlinks;
+const auto copyOptions = std::experimental::filesystem::copy_options::recursive |
+                         std::experimental::filesystem::copy_options::overwrite_existing |
+                         std::experimental::filesystem::copy_options::copy_symlinks;
 
 bool verbose = false;
 
@@ -52,7 +53,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &options
+        const std::filesystem::copy_options &copyOptions
 );
 
 void loadFromCache(
@@ -61,7 +62,7 @@ void loadFromCache(
         bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &options
+        const std::filesystem::copy_options &copyOptions
 );
 
 int main(int argumentCount, char **argumentList) {
@@ -116,7 +117,7 @@ int main(int argumentCount, char **argumentList) {
         trace("Identity file is: " + generatedHashTargetDirectory);
 
 
-        if (!std::filesystem::exists(targetDirectoryPath)) {
+        if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
             trace("No cache exists");
             commandString = generateCommand(commandWorkingDirectory, setupCommand);
 
@@ -217,7 +218,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &options
+        const std::filesystem::copy_options &copyOptions
 ) {
     trace("Execute: " + commandString);
     if (executeCommand(commandString)) {
@@ -225,14 +226,14 @@ void createCache(
     }
     try {
         trace("Create cache directory: " + targetDirectoryPath);
-        std::filesystem::create_directories(targetDirectoryPath);
+        std::experimental::filesystem::create_directories(targetDirectoryPath);
     } catch (...) {
         throw (CreateCacheDirectoryException("Create cache directories failed",
                                              ExitCode::createCacheDirectoriesFailed));
     }
     try {
         trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
-        std::filesystem::copy(cacheSource, targetDirectoryPath, options);
+        std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
     } catch (...) {
         trace("Copy to cache failed");
         throw (CopyToCacheFailedException("Copy to cache failed", ExitCode::copyToCacheFailed));
@@ -245,12 +246,12 @@ void loadFromCache(
         const bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &options
+        const std::filesystem::copy_options &copyOptions
 ) {
     trace("Cache found");
     try {
-        if (std::filesystem::exists(cacheSource)) {
-            std::filesystem::remove_all(cacheSource);
+        if (std::experimental::filesystem::exists(cacheSource)) {
+            std::experimental::filesystem::remove_all(cacheSource);
         }
     } catch (...) {
         throw (CleaningFailedException("Cleaning for cache regeneration failed", ExitCode::cleaningFailed));
@@ -259,7 +260,7 @@ void loadFromCache(
     if (!linkCache) {
         try {
             trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
-            std::filesystem::copy(targetDirectoryPath, cacheSource, options);
+            std::experimental::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
         } catch (...) {
             throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
         }
@@ -275,7 +276,7 @@ void loadFromCache(
         }
         trace("Create link from " + fromPath + " to " + cacheSource);
         try {
-            std::filesystem::create_symlink(fromPath, cacheSource);
+            std::experimental::filesystem::create_symlink(fromPath, cacheSource);
         } catch (...) {
             throw (LinkFromCacheException("Cannot create symlink", ExitCode::createSymLinkFailed));
         }
