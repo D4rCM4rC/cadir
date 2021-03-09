@@ -26,9 +26,9 @@ enum ExitCode {
 };
 
 const int currentWorkingDirectoryArgument = 0;
-const auto copyOptions = std::experimental::filesystem::copy_options::recursive |
-                         std::experimental::filesystem::copy_options::overwrite_existing |
-                         std::experimental::filesystem::copy_options::copy_symlinks;
+const auto defaultCopyOptions = std::experimental::filesystem::copy_options::recursive |
+                                std::experimental::filesystem::copy_options::overwrite_existing |
+                                std::experimental::filesystem::copy_options::copy_symlinks;
 
 bool verbose = false;
 
@@ -57,7 +57,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions
+        const std::experimental::filesystem::copy_options &copyOptions
 );
 
 void loadFromCache(
@@ -66,7 +66,7 @@ void loadFromCache(
         bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions
+        const std::experimental::filesystem::copy_options &copyOptions
 );
 
 int main(int argumentCount, char **argumentList) {
@@ -149,7 +149,7 @@ int main(int argumentCount, char **argumentList) {
                     cacheSource,
                     commandString,
                     targetDirectoryPath,
-                    copyOptions
+                    defaultCopyOptions
             );
         } else {
             commandString =
@@ -166,7 +166,7 @@ int main(int argumentCount, char **argumentList) {
                     linkCache,
                     commandString,
                     targetDirectoryPath,
-                    copyOptions
+                    defaultCopyOptions
             );
         }
 
@@ -284,7 +284,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions
+        const std::experimental::filesystem::copy_options &copyOptions
 ) {
     trace("Execute: " + commandString);
     if (executeCommand(commandString)) {
@@ -312,7 +312,7 @@ void loadFromCache(
         const bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions
+        const std::experimental::filesystem::copy_options &copyOptions
 ) {
     trace("Cache found");
     try {
