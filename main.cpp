@@ -46,7 +46,7 @@ std::string generateCommand(const std::string &workingDirectory, const std::stri
 
 std::string removeLastStringAfterSlash(const std::string &content);
 
-int executeCommand(const std::string &command);
+int executeCommand(std::string command);
 
 void trace(const std::string &log, bool const &force = false);
 
@@ -86,13 +86,13 @@ int main(int argumentCount, char **argumentList) {
         CLI::App app{"cadir description", "cadir"};
         app.remove_option(app.get_help_ptr());
 
-        app.add_option("-s,--cache-source", cacheSource, "The directory which should be cached");
-        app.add_option("-i,--identity-file", identityFile, "File which shows differences");
-        app.add_option("-d,--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
-        app.add_option("-w,--command-working-directory", commandWorkingDirectory,
+        app.add_option("--cache-source", cacheSource, "The directory which should be cached");
+        app.add_option("--identity-file", identityFile, "File which shows differences");
+        app.add_option("--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
+        app.add_option("--command-working-directory", commandWorkingDirectory,
                        "Working directory where the setup command is called from");
-        app.add_option("-c,--setup", setupCommand, "Argument which is called if cache is not found");
-        app.add_option("-f,--finalize", finalizeCommand,
+        app.add_option("--setup", setupCommand, "Argument which is called if cache is not found");
+        app.add_option("--finalize", finalizeCommand,
                        "[optional] Command which is called after cache is regenerated, linked or copied");
         app.add_flag("-v,--verbose", verbose, "Show verbose output");
         app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
@@ -102,12 +102,11 @@ int main(int argumentCount, char **argumentList) {
             app.parse(argumentCount, argumentList);
 
             // validation of mandatory arguments
-            app.get_option("-s,--cache-source");
-            app.get_option("-s,--cache-source");
-            app.get_option("-i,--identity-file");
-            app.get_option("-d,--cache-destination");
-            app.get_option("-w,--command-working-directory");
-            app.get_option("-s,--setup");
+            app.get_option("--cache-source");
+            app.get_option("--identity-file");
+            app.get_option("--cache-destination");
+            app.get_option("--command-working-directory");
+            app.get_option("--setup");
 
         } catch (const std::exception &ex) {
             trace(ex.what(), true);
@@ -231,14 +230,14 @@ std::string removeLastStringAfterSlash(const std::string &content) {
     return content.substr(0, (content.rfind('/') + 1));
 };
 
-int executeCommand(const std::string &command) {
+int executeCommand(std::string command) {
     if (verbose) {
         FILE *c = popen(command.c_str(), "r");
 
         return pclose(c);
     }
 
-    return system(command.c_str());
+    return system(command.append(" &> /dev/null").c_str());
 }
 
 
