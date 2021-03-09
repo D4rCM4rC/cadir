@@ -32,6 +32,8 @@ const auto copyOptions = std::experimental::filesystem::copy_options::recursive 
 
 bool verbose = false;
 
+void showHelpText(const std::string &help);
+
 std::string generateMd5FromString(const std::string &content);
 
 std::string getFileContents(const std::string &fileName);
@@ -46,7 +48,9 @@ std::string removeLastStringAfterSlash(const std::string &content);
 
 int executeCommand(const std::string &command);
 
-void trace(const std::string &log, bool const force = false);
+void trace(const std::string &log, bool const &force = false);
+
+void trace(bool const &force = false);
 
 void createCache(
         const std::string &setupCommand,
@@ -77,27 +81,46 @@ int main(int argumentCount, char **argumentList) {
                 removeLastStringAfterSlash(argumentList[currentWorkingDirectoryArgument]));
         std::string generatedHashTargetDirectory;
         bool linkCache = false;
+        bool showHelp = false;
 
-        CLI::App app{"App description", "cadir"};
+        CLI::App app{"cadir description", "cadir"};
+        app.remove_option(app.get_help_ptr());
 
         app.add_option("-s,--cache-source", cacheSource, "The directory which should be cached");
         app.add_option("-i,--identity-file", identityFile, "File which shows differences");
         app.add_option("-d,--cache-destination", targetCacheDirectoryPath, "The directory where the cache is stored");
         app.add_option("-w,--command-working-directory", commandWorkingDirectory,
                        "Working directory where the setup command is called from");
-        app.add_option("-c,--command", setupCommand, "Argument which is called if cache is not found");
-        app.add_option("-f,--finalize-command", finalizeCommand,
+        app.add_option("-c,--setup", setupCommand, "Argument which is called if cache is not found");
+        app.add_option("-f,--finalize", finalizeCommand,
                        "[optional] Command which is called after cache is regenerated, linked or copied");
         app.add_flag("-v,--verbose", verbose, "Show verbose output");
         app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
+        app.add_flag("-h,--help", showHelp, "Show help");
 
         try {
             app.parse(argumentCount, argumentList);
+
+            // validation of mandatory arguments
+            app.get_option("-s,--cache-source");
+            app.get_option("-s,--cache-source");
+            app.get_option("-i,--identity-file");
+            app.get_option("-d,--cache-destination");
+            app.get_option("-w,--command-working-directory");
+            app.get_option("-s,--setup");
+
         } catch (const std::exception &ex) {
             trace(ex.what(), true);
-            trace(app.help(), true);
+            trace(true);
+            showHelpText(app.help());
 
             return ExitCode::argumentParsingFailed;
+        }
+
+        if (showHelp) {
+            showHelpText(app.help());
+
+            return 0;
         }
 
         std::string commandString;
@@ -129,9 +152,22 @@ int main(int argumentCount, char **argumentList) {
                     copyOptions
             );
         } else {
-            commandString = generateCommand(commandWorkingDirectory, finalizeCommand);
-            loadFromCache(cacheSource, currentWorkingDirectoryPath, linkCache, commandString, targetDirectoryPath,
-                          copyOptions);
+            commandString =
+                    (finalizeCommand != "")
+                    ? generateCommand(
+                            commandWorkingDirectory,
+                            finalizeCommand
+                    )
+                    : "";
+
+            loadFromCache(
+                    cacheSource,
+                    currentWorkingDirectoryPath,
+                    linkCache,
+                    commandString,
+                    targetDirectoryPath,
+                    copyOptions
+            );
         }
 
         return ExitCode::ok;
@@ -140,6 +176,24 @@ int main(int argumentCount, char **argumentList) {
         return exception.getErrorCode();
     }
 }
+
+void showHelpText(const std::string &helpText) {
+    trace(helpText, true);
+    trace(true);
+    trace("Exit Codes", true);
+    trace("==========", true);
+    trace("0 = Successfully executed", true);
+    trace("1 = Wrong usage of arguments", true);
+    trace("2 = Identity file error (not found/no rights)", true);
+    trace("3 = Setup command failed", true);
+    trace("4 = Finalize command failed", true);
+    trace("5 = Cannot copy to cache directoy", true);
+    trace("6 = Cannot copy from cache directoy", true);
+    trace("7 = Cannot create link from cache", true);
+    trace("8 = Removing existing cache folder failed", true);
+    trace("9 = Cannot create cache directories", true);
+}
+
 
 std::string getFileContents(const std::string &fileName) {
     std::ifstream file(fileName);
@@ -187,13 +241,25 @@ int executeCommand(const std::string &command) {
     return system(command.c_str());
 }
 
-void trace(const std::string &log, bool const force) {
+
+void trace(bool const &force) {
     if (!force && !verbose) {
         return;
     }
 
-    std::cout << log << "\n";
+    std::cout << "\n";
 }
+
+void trace(const std::string &log, bool const &force) {
+    if (!force && !verbose) {
+        return;
+    }
+
+    std::cout << log;
+
+    trace(force);
+}
+
 
 std::string generateMd5FromString(const std::string &content) {
     MD5_CTX context;
@@ -264,10 +330,13 @@ void loadFromCache(
         } catch (...) {
             throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
         }
-        trace("Execute: " + commandString);
 
-        if (executeCommand(commandString)) {
-            throw (SetupCommandException("Setup command failed", ExitCode::finalizeCommandFailed));
+        if (commandString != "") {
+            trace("Execute: " + commandString);
+
+            if (executeCommand(commandString)) {
+                throw (SetupCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
+            }
         }
     } else {
         if (!isAbsolutePath(targetDirectoryPath)) {

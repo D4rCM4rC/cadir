@@ -22,13 +22,24 @@ Lets say you have a build server. On this each branch is built many times
 and the vendors will change not often. Here an example for a project with 
 npm. To see which vendors in which version are needed the identity file is
 "package-lock.json". On your build server you create the directory "vendorCache" 
-in "/tmp". So here is the example. The help of cadir which is displayed when less 
-than 5 arguments are used shows you this:
+in "/tmp". So here is the example:
 
-    cadir cadir --cache-source="test/source/vendor" --identity-file="test/source/composer.lock" --cache-destination="test/cache" --command-working-directory="test/source/" --command="composer install --ignore-platform-reqs" --finalize-command="composer dump-autoload" --verbose"
+    cadir --cache-source="test/source/vendor" --identity-file="test/source/composer.lock" --cache-destination="test/cache" --command-working-directory="test/source/" --setup="composer install --ignore-platform-reqs" --finalize="composer dump-autoload" --verbose
    
 cadir will check if a directory in the cache folder exists which has a name 
 equal to the checksum of "package-lock.json". If not, it will the command in 
 the working dorectory for the command which installs the npm dependencies and 
 copy it to the cache folder. If cadir finds a cached copy with a fitting name
 than it will copy or link it to the projekt folder.
+
+## Return values
+    0 = Successfully executed
+    1 = Wrong usage of arguments
+    2 = Identity file error (not found/no rights)
+    3 = Setup command failed
+    4 = Finalize command failed
+    5 = Cannot copy to cache directoy
+    6 = Cannot copy from cache directoy
+    7 = Cannot create link from cache
+    8 = Removing existing cache folder failed
+    9 = Cannot create cache directories
