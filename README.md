@@ -1,3 +1,5 @@
+# ATTENTION: USE BRANCH "debian". AT PRESENT DEBIAN 9 IS SUPPORTED
+
 # cadir
 If you suffer from many builds requesting the same vendor libraries
 than cadir can help! It works e.g. with composer or npm and all
