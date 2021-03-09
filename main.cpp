@@ -287,7 +287,8 @@ void createCache(
         const std::experimental::filesystem::copy_options &copyOptions
 ) {
     trace("Execute: " + commandString);
-    if (executeCommand(commandString)) {
+    int setupExitCode = executeCommand(commandString);
+    if (setupExitCode != 0) {
         throw (SetupCommandException("Setup command failed", ExitCode::setupCommandFailed));
     }
     try {
@@ -331,10 +332,11 @@ void loadFromCache(
             throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
         }
 
-        if (commandString != "") {
+        if (!commandString.empty()) {
             trace("Execute: " + commandString);
 
-            if (executeCommand(commandString)) {
+            int finalizeExitCode = executeCommand(commandString);
+            if (finalizeExitCode != 0) {
                 throw (FinalizeCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
             }
         }
