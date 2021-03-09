@@ -24,7 +24,7 @@ npm. To see which vendors in which version are needed the identity file is
 "package-lock.json". On your build server you create the directory "vendorCache" 
 in "/tmp". So here is the example:
 
-    cadir --cache-source="test/source/vendor" --identity-file="test/source/composer.lock" --cache-destination="test/cache" --command-working-directory="test/source/" --setup="composer install --ignore-platform-reqs" --finalize="composer dump-autoload" --verbose
+    
    
 cadir will check if a directory in the cache folder exists which has a name 
 equal to the checksum of "package-lock.json". If not, it will the command in 

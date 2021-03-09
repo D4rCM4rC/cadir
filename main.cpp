@@ -6,6 +6,7 @@
 #include "openssl/md5.h"
 #include "CLI11.hpp"
 #include "Exceptions/SetupCommandException.h"
+#include "Exceptions/FinalizeCommandException.h"
 #include "Exceptions/CreateCacheDirectoryException.h"
 #include "Exceptions/CopyToCacheFailedException.h"
 #include "Exceptions/CleaningFailedException.h"
@@ -334,7 +335,7 @@ void loadFromCache(
             trace("Execute: " + commandString);
 
             if (executeCommand(commandString)) {
-                throw (SetupCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
+                throw (FinalizeCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
             }
         }
     } else {
