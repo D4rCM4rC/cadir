@@ -1,6 +1,2 @@
-*
-!.gitignore
-!main.cpp
-!makefile
-!README.md
-!LICENSE
+.idea/
+cmake-build-debug/

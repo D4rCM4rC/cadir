@@ -24,15 +24,9 @@ Lets say you have a build server. On this each branch is built many times
 and the vendors will change not often. Here an example for a project with 
 npm. To see which vendors in which version are needed the identity file is
 "package-lock.json". On your build server you create the directory "vendorCache" 
-in "/tmp". So here is the example. The help of cadir which is displayed when less 
-than 5 arguments are used shows you this:
+in "/tmp". So here is the example:
 
-    cadir cadir DIRECTORY_TO_BE_CACHED FILE_FOR_IDENTIFY_CACHE DIRECTORY_FOR_CACHES COMMAND_WORKING_DIRECTORY COMMAND [COPY_MODE]
-
-So in your case this call will enable the directory cache
-
-    cadir /home/my-project/current/node_modules /home/my-project/current/package-lock.json /tmp/vendorCache /home/my-project/current "npm ci"       << will link the directory
-    cadir /home/my-project/current/node_modules /home/my-project/current/package-lock.json /tmp/vendorCache /home/my-project/current "npm ci" copy  << will copy the directory
+    cadir --cache-source="test/source/vendor" --identity-file="test/source/composer.lock" --cache-destination="test/cache" --command-working-directory="test/source/" --setup="composer install --ignore-platform-reqs" --finalize="composer dump-autoload" --verbose
    
 cadir will check if a directory in the cache folder exists which has a name 
 equal to the checksum of "package-lock.json". If not, it will the command in 
@@ -40,7 +34,14 @@ the working dorectory for the command which installs the npm dependencies and
 copy it to the cache folder. If cadir finds a cached copy with a fitting name
 than it will copy or link it to the projekt folder.
 
-## *Still to come
-Some features are not included at present. This will follow:
-
-- optional verbose output 
+## Return values
+    0 = Successfully executed
+    1 = Wrong usage of arguments
+    2 = Identity file error (not found/no rights)
+    3 = Setup command failed
+    4 = Finalize command failed
+    5 = Cannot copy to cache directoy
+    6 = Cannot copy from cache directoy
+    7 = Cannot create link from cache
+    8 = Removing existing cache folder failed
+    9 = Cannot create cache directories
