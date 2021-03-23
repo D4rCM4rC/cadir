@@ -233,9 +233,18 @@ std::string removeLastStringAfterSlash(const std::string &content) {
 
 int executeCommand(std::string command) {
     if (verbose) {
-        FILE *c = popen(command.c_str(), "r");
+        std::array<char, 128> buffer{};
 
-        return pclose(c);
+        FILE* pipe = popen(command.c_str(), "r");
+        if (!pipe)
+        {
+            std::cerr << "Command failed." << std::endl;
+            return 255;
+        }
+        while (fgets(buffer.data(), 128, pipe) != nullptr) {
+            std::cout << buffer.data() << std::endl;
+        }
+        return pclose(pipe);
     }
 
     return system(command.append(" &> /dev/null").c_str());

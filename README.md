@@ -24,7 +24,7 @@ npm. To see which vendors in which version are needed the identity file is
 "package-lock.json". On your build server you create the directory "vendorCache" 
 in "/tmp". So here is the example:
 
-    
+    cadir --cache-source="vendor" --identity-file="composer.lock" --cache-destination="/tmp/vendorCache" --command-working-directory=`pwd` --setup="composer install --ignore-platform-reqs --no-cache --no-interaction" --finalize="composer dump-autoload --no-interaction" --verbose
    
 cadir will check if a directory in the cache folder exists which has a name 
 equal to the checksum of "package-lock.json". If not, it will the command in 
@@ -43,3 +43,8 @@ than it will copy or link it to the projekt folder.
     7 = Cannot create link from cache
     8 = Removing existing cache folder failed
     9 = Cannot create cache directories
+
+## Compiling without cmake
+Run
+
+    c++ -Wall main.cpp -o cadir -lcrypto -lssl -std=c++17 -lstdc++fs
