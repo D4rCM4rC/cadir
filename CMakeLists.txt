@@ -11,15 +11,8 @@ if ( OPENSSL_FOUND )
     message(STATUS "OpenSSL Libraries: ${OPENSSL_LIBRARIES}")
 endif()
 
-try_compile(HAS_FILESYSTEM "${CMAKE_BINARY_DIR}/temp" "${CMAKE_SOURCE_DIR}/compiletest/has_filesystem.cpp" 
-            CMAKE_FLAGS -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
-            LINK_LIBRARIES stdc++fs)
-
-
-configure_file(config.h.in config.h)
-include_directories(. ${CMAKE_CURRENT_BINARY_DIR})
 link_libraries(${OPENSSL_LIBRARIES})
 
-add_executable(cadir3 main.cpp)
+add_executable(cadir3 main.cpp Exceptions/FileHandlingException.h Exceptions/SetupCommandException.h Exceptions/CreateCacheDirectoryException.h Exceptions/CopyToCacheFailedException.h Exceptions/CleaningFailedException.h Exceptions/CopyFromCacheException.h Exceptions/LinkFromCacheException.h)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
