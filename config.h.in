@@ -1,0 +1,12 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#cmakedefine01 HAS_FILESYSTEM
+
+#if HAS_FILESYSTEM == 1
+    namespace stdfs = ::std::filesystem;
+#else
+    namespace stdfs = ::std::experimental::filesystem;
+#endif
+
+#endif
