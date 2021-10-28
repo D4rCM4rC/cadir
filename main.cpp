@@ -12,6 +12,7 @@
 #include "Exceptions/CleaningFailedException.h"
 #include "Exceptions/CopyFromCacheException.h"
 #include "Exceptions/LinkFromCacheException.h"
+#include "compress.hpp"
 
 enum ExitCode {
     ok = 0,
