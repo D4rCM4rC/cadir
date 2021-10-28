@@ -1,7 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
-#include <experimental/filesystem>
+// #include <experimental/filesystem>
 #include <array>
 #include "openssl/md5.h"
 #include "CLI11.hpp"
@@ -12,6 +12,7 @@
 #include "Exceptions/CleaningFailedException.h"
 #include "Exceptions/CopyFromCacheException.h"
 #include "Exceptions/LinkFromCacheException.h"
+#include "fileSystem.hpp"
 #include "compress.hpp"
 
 enum ExitCode {
@@ -27,10 +28,12 @@ enum ExitCode {
     createCacheDirectoriesFailed = 9,
 };
 
+const std::string archiveExtension = ".tar.gz";
+
 const int currentWorkingDirectoryArgument = 0;
-const auto defaultCopyOptions = std::experimental::filesystem::copy_options::recursive |
-                                std::experimental::filesystem::copy_options::overwrite_existing |
-                                std::experimental::filesystem::copy_options::copy_symlinks;
+const auto defaultCopyOptions = std::filesystem::copy_options::recursive |
+                                std::filesystem::copy_options::overwrite_existing |
+                                std::filesystem::copy_options::copy_symlinks;
 
 bool verbose = false;
 
@@ -59,7 +62,8 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::experimental::filesystem::copy_options &copyOptions
+        const std::filesystem::copy_options &copyOptions,
+        const bool &archive
 );
 
 void loadFromCache(
@@ -68,7 +72,8 @@ void loadFromCache(
         bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::experimental::filesystem::copy_options &copyOptions
+        const std::filesystem::copy_options &copyOptions,
+        const bool &archive
 );
 
 int main(int argumentCount, char **argumentList) {
@@ -84,6 +89,7 @@ int main(int argumentCount, char **argumentList) {
         std::string generatedHashTargetDirectory;
         bool linkCache = false;
         bool showHelp = false;
+        bool archive = false;
 
         CLI::App app{"cadir description", "cadir"};
         app.remove_option(app.get_help_ptr());
@@ -96,6 +102,7 @@ int main(int argumentCount, char **argumentList) {
         app.add_option("--setup", setupCommand, "Argument which is called if cache is not found");
         app.add_option("--finalize", finalizeCommand,
                        "[optional] Command which is called after cache is regenerated, linked or copied");
+        app.add_flag("-a,--archive", archive, "In case of copying the data a tar compressed archive will be created");
         app.add_flag("-v,--verbose", verbose, "Show verbose output");
         app.add_flag("-l,--link", linkCache, "Link cache instead of copy");
         app.add_flag("-h,--help", showHelp, "Show help");
@@ -141,7 +148,7 @@ int main(int argumentCount, char **argumentList) {
         trace("Identity file is: " + generatedHashTargetDirectory);
 
 
-        if (!std::experimental::filesystem::exists(targetDirectoryPath)) {
+        if (!std::filesystem::exists(targetDirectoryPath)) {
             trace("No cache exists");
             commandString = generateCommand(commandWorkingDirectory, setupCommand);
 
@@ -150,7 +157,8 @@ int main(int argumentCount, char **argumentList) {
                     cacheSource,
                     commandString,
                     targetDirectoryPath,
-                    defaultCopyOptions
+                    defaultCopyOptions,
+                    archive
             );
         } else {
             commandString =
@@ -167,7 +175,8 @@ int main(int argumentCount, char **argumentList) {
                     linkCache,
                     commandString,
                     targetDirectoryPath,
-                    defaultCopyOptions
+                    defaultCopyOptions,
+                    archive
             );
         }
 
@@ -236,9 +245,8 @@ int executeCommand(std::string command) {
     if (verbose) {
         std::array<char, 128> buffer{};
 
-        FILE* pipe = popen(command.c_str(), "r");
-        if (!pipe)
-        {
+        FILE *pipe = popen(command.c_str(), "r");
+        if (!pipe) {
             std::cerr << "Command failed." << std::endl;
             return 255;
         }
@@ -294,26 +302,47 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::experimental::filesystem::copy_options &copyOptions
+        const std::filesystem::copy_options &copyOptions,
+        const bool &archive
 ) {
     trace("Execute: " + commandString);
     int setupExitCode = executeCommand(commandString);
     if (setupExitCode != 0) {
         throw (SetupCommandException("Setup command failed", ExitCode::setupCommandFailed));
     }
-    try {
-        trace("Create cache directory: " + targetDirectoryPath);
-        std::experimental::filesystem::create_directories(targetDirectoryPath);
-    } catch (...) {
-        throw (CreateCacheDirectoryException("Create cache directories failed",
-                                             ExitCode::createCacheDirectoriesFailed));
-    }
-    try {
-        trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
-        std::experimental::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
-    } catch (...) {
-        trace("Copy to cache failed");
-        throw (CopyToCacheFailedException("Copy to cache failed", ExitCode::copyToCacheFailed));
+    if (archive) {
+        trace("Archive: " + targetDirectoryPath);
+
+        std::filesystem::path cacheSourcePath(cacheSource);
+        std::string targetDirectoryPathString(targetDirectoryPath);
+
+        std::vector<std::string> fileNames;
+        for (auto &p: std::filesystem::recursive_directory_iterator(cacheSource)) {
+            fileNames.push_back(p.path().u8string());
+            trace("add: " + p.path().u8string());
+        }
+
+        compress::write_archive(
+                cacheSourcePath.parent_path(),
+                targetDirectoryPathString.append(archiveExtension).c_str(),
+                fileNames
+        );
+    } else {
+        trace("Copy: " + targetDirectoryPath);
+        try {
+            trace("Create cache directory: " + targetDirectoryPath);
+            std::filesystem::create_directories(targetDirectoryPath);
+        } catch (...) {
+            throw (CreateCacheDirectoryException("Create cache directories failed",
+                                                 ExitCode::createCacheDirectoriesFailed));
+        }
+        try {
+            trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
+            std::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
+        } catch (...) {
+            trace("Copy to cache failed");
+            throw (CopyToCacheFailedException("Copy to cache failed", ExitCode::copyToCacheFailed));
+        }
     }
 }
 
@@ -323,31 +352,39 @@ void loadFromCache(
         const bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::experimental::filesystem::copy_options &copyOptions
+        const std::filesystem::copy_options &copyOptions,
+        const bool &archive
 ) {
     trace("Cache found");
     try {
-        if (std::experimental::filesystem::exists(cacheSource)) {
-            std::experimental::filesystem::remove_all(cacheSource);
+        if (std::filesystem::exists(cacheSource)) {
+            std::filesystem::remove_all(cacheSource);
         }
     } catch (...) {
         throw (CleaningFailedException("Cleaning for cache regeneration failed", ExitCode::cleaningFailed));
     }
     std::string fromPath = targetDirectoryPath;
     if (!linkCache) {
-        try {
-            trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
-            std::experimental::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
-        } catch (...) {
-            throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
-        }
+        if (archive) {
+            trace("Extract data from " + targetDirectoryPath + archiveExtension + " to " + cacheSource);
+            std::string targetDirectoryPathString(targetDirectoryPath);
 
-        if (!commandString.empty()) {
-            trace("Execute: " + commandString);
+            compress::extract(targetDirectoryPathString.append(archiveExtension).c_str());
+        } else {
+            try {
+                trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
+                std::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
+            } catch (...) {
+                throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
+            }
 
-            int finalizeExitCode = executeCommand(commandString);
-            if (finalizeExitCode != 0) {
-                throw (FinalizeCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
+            if (!commandString.empty()) {
+                trace("Execute: " + commandString);
+
+                int finalizeExitCode = executeCommand(commandString);
+                if (finalizeExitCode != 0) {
+                    throw (FinalizeCommandException("Finalize command failed", ExitCode::finalizeCommandFailed));
+                }
             }
         }
     } else {
@@ -357,7 +394,7 @@ void loadFromCache(
         }
         trace("Create link from " + fromPath + " to " + cacheSource);
         try {
-            std::experimental::filesystem::create_symlink(fromPath, cacheSource);
+            std::filesystem::create_symlink(fromPath, cacheSource);
         } catch (...) {
             throw (LinkFromCacheException("Cannot create symlink", ExitCode::createSymLinkFailed));
         }
