@@ -1,27 +1,35 @@
+#pragma once //"exitCodeEnum.hpp"
+
 #include <iostream>
 #include <fstream>
-#include <experimental/filesystem>
 #include <archive.h>
 #include <archive_entry.h>
 #include <vector>
+#include "fileSystem.hpp"
+#include "exitCodeEnum.hpp"
+#include "Exceptions/GzipWriteReadException.h"
 
 namespace compress {
+    const int bufferSize = 1024 * 1024 * 4;
+
     void write_archive(const std::string &rootPath, const char *outname, std::vector<std::string> files) {
         struct archive *archive;
         struct archive_entry *archiveEntry;
         struct stat st;
         int len;
         std::ifstream fileStream;
-        char buffer[1024 * 1024 * 4];
+        char buffer[bufferSize];
 
         archive = archive_write_new();
-        archive_write_add_filter_gzip(archive);
-        archive_write_set_format_pax_restricted(archive);
-        archive_write_open_filename(archive, outname);
+        if (
+                archive_write_add_filter_gzip(archive) ||
+                archive_write_set_format_pax_restricted(archive) ||
+                archive_write_open_filename(archive, outname) ==1 )
+            throw (GzipWriteReadException("GZip Exception", ExitCode::gzipException));
 
         for (auto iterator = files.begin(); iterator != files.end(); iterator++) {
             std::string fileName = *iterator;
-            std::string relativeFileName = std::experimental::filesystem::relative(fileName, rootPath);
+            std::string relativeFileName = std::filesystem::relative(fileName, rootPath);
 
             stat(fileName.c_str(), &st);
             archiveEntry = archive_entry_new();
@@ -109,7 +117,7 @@ namespace compress {
             else if (archive_entry_size(entry) > 0) {
                 r = copy_data(a, ext);
                 if (r < ARCHIVE_OK) {
-                    fprintf(stderr, "aa %s\n", archive_error_string(ext));
+                    fprintf(stderr, "%s\n", archive_error_string(ext));
                 }
                 if (r < ARCHIVE_WARN)
                     return 1;
@@ -120,10 +128,12 @@ namespace compress {
             if (r < ARCHIVE_WARN)
                 return 1;
         }
+
         archive_read_close(a);
         archive_read_free(a);
         archive_write_close(ext);
         archive_write_free(ext);
+
         return 0;
     }
 }

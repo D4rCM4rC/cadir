@@ -51,4 +51,4 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 link_libraries(${OPENSSL_LIBRARIES} ${LIB_ARCHIVE_EXT_LIBS})
 
-add_executable(cadir3 main.cpp Exceptions/FileHandlingException.h Exceptions/SetupCommandException.h Exceptions/CreateCacheDirectoryException.h Exceptions/CopyToCacheFailedException.h Exceptions/CleaningFailedException.h Exceptions/CopyFromCacheException.h Exceptions/LinkFromCacheException.h compress.hpp fileSystem.hpp)
+add_executable(cadir3 main.cpp Exceptions/FileHandlingException.h Exceptions/SetupCommandException.h Exceptions/CreateCacheDirectoryException.h Exceptions/CopyToCacheFailedException.h Exceptions/CleaningFailedException.h Exceptions/CopyFromCacheException.h Exceptions/LinkFromCacheException.h compress.hpp fileSystem.hpp exitCodeEnum.hpp)

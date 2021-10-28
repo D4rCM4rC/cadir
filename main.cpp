@@ -1,3 +1,5 @@
+#pragma once //"exitCodeEnum.hpp"
+
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -15,18 +17,7 @@
 #include "fileSystem.hpp"
 #include "compress.hpp"
 
-enum ExitCode {
-    ok = 0,
-    argumentParsingFailed = 1,
-    identityFileFailed = 2,
-    setupCommandFailed = 3,
-    finalizeCommandFailed = 4,
-    copyToCacheFailed = 5,
-    copyFromCacheFailed = 6,
-    createSymLinkFailed = 7,
-    cleaningFailed = 8,
-    createCacheDirectoriesFailed = 9,
-};
+
 
 const std::string archiveExtension = ".tar.gz";
 
@@ -147,8 +138,11 @@ int main(int argumentCount, char **argumentList) {
 
         trace("Identity file is: " + generatedHashTargetDirectory);
 
+        const bool foundCache = (archive)
+                ? std::filesystem::exists(targetDirectoryPath + archiveExtension)
+                : std::filesystem::exists(targetDirectoryPath);
 
-        if (!std::filesystem::exists(targetDirectoryPath)) {
+        if (!foundCache) {
             trace("No cache exists");
             commandString = generateCommand(commandWorkingDirectory, setupCommand);
 
