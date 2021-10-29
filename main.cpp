@@ -5,8 +5,8 @@
 #include <fstream>
 #include <utime.h>
 #include <chrono>
-#include <sys/types.h>
 #include <array>
+#include <config.h>
 #include "openssl/md5.h"
 #include "CLI11.hpp"
 #include "Exceptions/SetupCommandException.h"
@@ -24,9 +24,9 @@
 const std::string archiveExtension = ".tar.gz";
 
 const int currentWorkingDirectoryArgument = 0;
-const auto defaultCopyOptions = std::filesystem::copy_options::recursive |
-                                std::filesystem::copy_options::overwrite_existing |
-                                std::filesystem::copy_options::copy_symlinks;
+const auto defaultCopyOptions = stdfs::copy_options::recursive |
+                                stdfs::copy_options::overwrite_existing |
+                                stdfs::copy_options::copy_symlinks;
 
 bool verbose = false;
 
@@ -55,7 +55,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions,
+        const stdfs::copy_options &copyOptions,
         const bool &archive
 );
 
@@ -65,7 +65,7 @@ void loadFromCache(
         bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions,
+        const stdfs::copy_options &copyOptions,
         const bool &archive
 );
 
@@ -141,8 +141,8 @@ int main(int argumentCount, char **argumentList) {
         trace("Identity file is: " + generatedHashTargetDirectory);
 
         const bool foundCache = (archive)
-                ? std::filesystem::exists(targetDirectoryPath + archiveExtension)
-                : std::filesystem::exists(targetDirectoryPath);
+                ? stdfs::exists(targetDirectoryPath + archiveExtension)
+                : stdfs::exists(targetDirectoryPath);
 
         if (!foundCache) {
             trace("No cache exists");
@@ -298,7 +298,7 @@ void createCache(
         const std::string &cacheSource,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions,
+        const stdfs::copy_options &copyOptions,
         const bool &archive
 ) {
     trace("Execute: " + commandString);
@@ -309,11 +309,11 @@ void createCache(
     if (archive) {
         trace("Archive: " + targetDirectoryPath);
 
-        std::filesystem::path cacheSourcePath(cacheSource);
+        stdfs::path cacheSourcePath(cacheSource);
         std::string targetDirectoryPathString(targetDirectoryPath);
 
         std::vector<std::string> fileNames;
-        for (auto &p: std::filesystem::recursive_directory_iterator(cacheSource)) {
+        for (auto &p: stdfs::recursive_directory_iterator(cacheSource)) {
             fileNames.push_back(p.path().u8string());
             trace("add: " + p.path().u8string());
         }
@@ -327,14 +327,14 @@ void createCache(
         trace("Copy: " + targetDirectoryPath);
         try {
             trace("Create cache directory: " + targetDirectoryPath);
-            std::filesystem::create_directories(targetDirectoryPath);
+            stdfs::create_directories(targetDirectoryPath);
         } catch (...) {
             throw (CreateCacheDirectoryException("Create cache directories failed",
                                                  ExitCode::createCacheDirectoriesFailed));
         }
         try {
             trace("Copy data from " + cacheSource + " to " + targetDirectoryPath);
-            std::filesystem::copy(cacheSource, targetDirectoryPath, copyOptions);
+            stdfs::copy(cacheSource, targetDirectoryPath, copyOptions);
         } catch (...) {
             trace("Copy to cache failed");
             throw (CopyToCacheFailedException("Copy to cache failed", ExitCode::copyToCacheFailed));
@@ -356,13 +356,13 @@ void loadFromCache(
         const bool linkCache,
         const std::string &commandString,
         const std::string &targetDirectoryPath,
-        const std::filesystem::copy_options &copyOptions,
+        const stdfs::copy_options &copyOptions,
         const bool &archive
 ) {
     trace("Cache found");
     try {
-        if (std::filesystem::exists(cacheSource)) {
-            std::filesystem::remove_all(cacheSource);
+        if (stdfs::exists(cacheSource)) {
+            stdfs::remove_all(cacheSource);
         }
     } catch (...) {
         throw (CleaningFailedException("Cleaning for cache regeneration failed", ExitCode::cleaningFailed));
@@ -381,7 +381,7 @@ void loadFromCache(
         } else {
             try {
                 trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
-                std::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
+                stdfs::copy(targetDirectoryPath, cacheSource, copyOptions);
 
                 if (updateAccessTime(cacheSource.c_str()) != 0)
                     trace("could not update access time");
@@ -406,7 +406,7 @@ void loadFromCache(
         }
         trace("Create link from " + fromPath + " to " + cacheSource);
         try {
-            std::filesystem::create_symlink(fromPath, cacheSource);
+            stdfs::create_symlink(fromPath, cacheSource);
 
             if (updateAccessTime(cacheSource.c_str()) != 0)
                 trace("could not update access time");

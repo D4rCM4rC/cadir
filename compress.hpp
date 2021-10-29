@@ -8,6 +8,7 @@
 #include "fileSystem.hpp"
 #include "exitCodeEnum.hpp"
 #include "Exceptions/GzipWriteReadException.h"
+#include <config.h>
 
 namespace compress {
     const int bufferSize = 1024 * 1024 * 4;
@@ -29,12 +30,12 @@ namespace compress {
 
         for (auto iterator = files.begin(); iterator != files.end(); iterator++) {
             std::string fileName = *iterator;
-            std::string relativeFileName = std::filesystem::relative(fileName, rootPath);
+            std::string relativeFileName = stdfs::relative(fileName, rootPath).u8string();
 
             stat(fileName.c_str(), &st);
             archiveEntry = archive_entry_new();
 
-            archive_entry_set_pathname(archiveEntry, relativeFileName.c_str());
+            archive_entry_set_pathname_utf8(archiveEntry, relativeFileName.c_str());
             archive_entry_copy_stat(archiveEntry, &st);
 
             if (archive_write_header(archive, archiveEntry) != 0)
