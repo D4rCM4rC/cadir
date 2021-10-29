@@ -3,30 +3,22 @@
 #       define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 0
 #   elif defined(__cpp_lib_experimental_filesystem)
 #       define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 1
-
 #   elif !defined(__has_include)
 #       define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 1
-
 #   elif __has_include(<filesystem>)
-
 #       ifdef _MSC_VER
-
 #           if __has_include(<yvals_core.h>)
 #               include <yvals_core.h>
-
 #               if defined(_HAS_CXX17) && _HAS_CXX17
 #                   define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 0
 #               endif
 #           endif
-
 #           ifndef INCLUDE_STD_FILESYSTEM_EXPERIMENTAL
 #               define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 1
 #           endif
-
 #       else // #ifdef _MSC_VER
 #           define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 0
 #       endif
-
 #   elif __has_include(<experimental/filesystem>)
 #       define INCLUDE_STD_FILESYSTEM_EXPERIMENTAL 1
 #   else
@@ -40,5 +32,4 @@ namespace std {
 #   else
 #       include <filesystem>
 #   endif
-
 #endif
