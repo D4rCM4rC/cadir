@@ -3,7 +3,9 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
-// #include <experimental/filesystem>
+#include <utime.h>
+#include <chrono>
+#include <sys/types.h>
 #include <array>
 #include "openssl/md5.h"
 #include "CLI11.hpp"
@@ -340,6 +342,14 @@ void createCache(
     }
 }
 
+int updateAccessTime(const char *fileName) {
+    struct utimbuf utimbuf{};
+
+    utimbuf.modtime =  std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+    return utime(fileName, &utimbuf);
+}
+
 void loadFromCache(
         const std::string &cacheSource,
         const std::string &currentWorkingDirectoryPath,
@@ -362,12 +372,20 @@ void loadFromCache(
         if (archive) {
             trace("Extract data from " + targetDirectoryPath + archiveExtension + " to " + cacheSource);
             std::string targetDirectoryPathString(targetDirectoryPath);
+            std::string fileNameWithExtension = targetDirectoryPathString.append(archiveExtension);
 
-            compress::extract(targetDirectoryPathString.append(archiveExtension).c_str());
+            compress::extract(fileNameWithExtension.c_str());
+
+            if (updateAccessTime(fileNameWithExtension.c_str()) != 0)
+                trace("could not update access time");
         } else {
             try {
                 trace("Copy data from " + targetDirectoryPath + " to " + cacheSource);
                 std::filesystem::copy(targetDirectoryPath, cacheSource, copyOptions);
+
+                if (updateAccessTime(cacheSource.c_str()) != 0)
+                    trace("could not update access time");
+
             } catch (...) {
                 throw (CopyFromCacheException("Copy from cache failed", ExitCode::copyFromCacheFailed));
             }
@@ -389,6 +407,9 @@ void loadFromCache(
         trace("Create link from " + fromPath + " to " + cacheSource);
         try {
             std::filesystem::create_symlink(fromPath, cacheSource);
+
+            if (updateAccessTime(cacheSource.c_str()) != 0)
+                trace("could not update access time");
         } catch (...) {
             throw (LinkFromCacheException("Cannot create symlink", ExitCode::createSymLinkFailed));
         }

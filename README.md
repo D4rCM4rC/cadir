@@ -13,7 +13,10 @@ Checkout repository
 Build
 
     cd cadir
-    make
+    mkdir build
+    cd build
+    cmake ..
+    make -j
     
 Move or link the executable to somewhere the system finds it.
 
@@ -33,18 +36,21 @@ copy it to the cache folder. If cadir finds a cached copy with a fitting name
 than it will copy or link it to the projekt folder.
 
 ## Return values
-    0 = Successfully executed
-    1 = Wrong usage of arguments
-    2 = Identity file error (not found/no rights)
-    3 = Setup command failed
-    4 = Finalize command failed
-    5 = Cannot copy to cache directoy
-    6 = Cannot copy from cache directoy
-    7 = Cannot create link from cache
-    8 = Removing existing cache folder failed
-    9 = Cannot create cache directories
-
-## Compiling without cmake
-Run
-
-    c++ -Wall main.cpp -o cadir -lcrypto -lssl -std=c++17 -lstdc++fs
+     0 = Successfully executed
+     1 = Wrong usage of arguments
+     2 = Identity file error (not found/no rights)
+     3 = Setup command failed
+     4 = Finalize command failed
+     5 = Cannot copy to cache directoy
+     6 = Cannot copy from cache directoy
+     7 = Cannot create link from cache
+     8 = Removing existing cache folder failed
+     9 = Cannot create cache directories
+    10 = gzip error (only with option a, archive)
+    
+# Change log
+## 1.1.0    Archive
+    add:    cache could be compressed to "tar.gz"
+    add:    update time of cache at reading
+## 1.0.0    First shot
+    add:    whole implementation
