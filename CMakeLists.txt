@@ -8,8 +8,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 #########################
 ## LIBARCHIVE ## BEGIN ##
 
-set(LIB_ARCHIVE_DISABLED_MODULES --without-bz2lib --without-libb2 --without-lz4 --without-zstd --without-lzma --without-cng --without-xml2 --without-expat)
-set(LIB_ARCHIVE_EXT_LIBS archive iconv z)
+set(LIB_ARCHIVE_DISABLED_MODULES --without-bz2lib --without-iconv --without-libb2 --without-lz4 --without-zstd --without-lzma --without-cng --without-xml2 --without-expat)
+set(LIB_ARCHIVE_EXT_LIBS archive z)
 
 ExternalProject_Add(
         lib_archive
