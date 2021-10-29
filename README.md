@@ -35,6 +35,18 @@ the working dorectory for the command which installs the npm dependencies and
 copy it to the cache folder. If cadir finds a cached copy with a fitting name
 than it will copy or link it to the projekt folder.
 
+## Arguments
+            --cache-source                  The directory which should be cached"
+            --identity-file                 File which shows differences
+            --cache-destination             The directory where the cache is stored
+            --command-working-directory     Working directory where the setup command is called from
+            --setup                         Argument which is called if cache is not found
+            --finalize                      (optional) Command which is called after cache is regenerated, linked or copied");
+            -v,--verbose                    (optional) Show verbose output
+            -a,--archive                    (optional) In case of copying the data a tar compressed archive (tar.gz) will be created
+            -l,--link                       (optional)  Link cache instead of copy
+            -h,--help                       (optional) Show help
+
 ## Return values
      0 = Successfully executed
      1 = Wrong usage of arguments
