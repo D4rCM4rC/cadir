@@ -29,7 +29,7 @@ Build
     cd cadir
     mkdir build
     cd build
-    cmake ..
+    cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j
     
 Move or link the executable to somewhere the system finds it.
