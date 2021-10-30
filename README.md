@@ -5,6 +5,20 @@ other package manager that have a file to identiy the current vendor
 package versions (like composer.lock or package-lock.json). cadir will 
 also run the command for installing vendors. 
 
+## Requirements
+Libarchive is bundled, but a few packages are required to build and run:
+
+* cmake: build tool for cadir
+* make: build tool for cadir and libarchive
+* c compiler: for libarchive
+* c++ compiler: for cadir
+* openssl: for hash algorithms
+* zlib: for gz compression
+
+On debian, this will install the required dependencies:
+
+    sudo apt install gcc g++ cmake make libssl-dev zlib1g-dev
+
 ## Installation
 Checkout repository
 
