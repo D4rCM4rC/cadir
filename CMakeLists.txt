@@ -14,6 +14,12 @@ try_compile(HAS_FILESYSTEM "${CMAKE_BINARY_DIR}/temp" "${CMAKE_SOURCE_DIR}/compi
 configure_file(config.h.in config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+if (HAS_FILESYSTEM)
+    set(FILESYSTEM_LIBS stdc++fs)
+else()
+    set(FILESYSTEM_LIBS)
+endif()
+
 #########################
 ## LIBARCHIVE ## BEGIN ##
 
@@ -59,7 +65,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 #####################
 
 
-link_libraries(${OPENSSL_LIBRARIES} ${LIB_ARCHIVE_EXT_LIBS})
+link_libraries(${OPENSSL_LIBRARIES} ${LIB_ARCHIVE_EXT_LIBS} ${FILESYSTEM_LIBS})
 
 add_executable(cadir3 main.cpp config.h.in)
 set(CMAKE_VERBOSE_MAKEFILE ON)

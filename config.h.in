@@ -3,8 +3,7 @@
 
 #cmakedefine01 HAS_FILESYSTEM
 
-// #if HAS_FILESYSTEM == 1
-#if defined(__cpp_lib_filesystem)
+#if HAS_FILESYSTEM == 1
 
 #include <filesystem>
     namespace stdfs = ::std::filesystem;
